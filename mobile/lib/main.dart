@@ -38,6 +38,12 @@ class MagazinApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Aceeași instanță de `ApiService` cu care a fost cablat
+        // `onUnauthorized` mai sus — expusă prin Provider ca ecranele care nu
+        // primesc `ApiService` prin alt provider (checkout, comenzi) să nu mai
+        // instanțieze una proprie, fără hook-ul de 401 (vezi
+        // `checkout_screen.dart`, `orders_screen.dart`, `order_detail_screen.dart`).
+        Provider<ApiService>.value(value: api),
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider(api: api)),
       ],

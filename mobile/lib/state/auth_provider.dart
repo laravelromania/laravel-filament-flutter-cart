@@ -40,19 +40,33 @@ class AuthProvider extends ChangeNotifier {
   /// apelează atunci [onUnauthorized] (cablat spre [forceLogout] în
   /// `main.dart`), deci ajungem tot la o stare curată, fără duplicarea logicii
   /// de curățare aici.
+  ///
+  /// Orice altă eroare (ex. `SocketException`/timeout — fără conexiune la
+  /// pornire) NU trebuie să scape neprinsă: dacă ar scăpa, `_bootstrapping`
+  /// n-ar mai fi curățat, iar `home_shell.dart` ar arăta la infinit spinner-ul
+  /// pentru filele „Coș"/„Cont" (vezi `bootstrapping`). De-aia întregul corp e
+  /// într-un `try`/`catch`/`finally` — la fel ca `_run` din `cart_provider.dart`
+  /// — care garantează că ieșim din starea de bootstrap indiferent ce se
+  /// întâmplă, lăsând utilizatorul pur și simplu delogat (catalogul rămâne
+  /// oricum navigabil fără autentificare).
   Future<void> bootstrap() async {
-    _token = await TokenStorage.read();
+    try {
+      _token = await TokenStorage.read();
 
-    if (_token != null) {
-      try {
-        _user = await _api.me();
-      } on ApiException {
-        await forceLogout();
+      if (_token != null) {
+        try {
+          _user = await _api.me();
+        } on ApiException {
+          await forceLogout();
+        }
       }
+    } catch (_) {
+      // Orice eroare neprevăzută la pornire (rețea absentă, timeout etc.) —
+      // rămânem delogați; `finally` de mai jos tot curăță `_bootstrapping`.
+    } finally {
+      _bootstrapping = false;
+      notifyListeners();
     }
-
-    _bootstrapping = false;
-    notifyListeners();
   }
 
   /// `POST /register` — creează contul, primește un token, îl salvează.

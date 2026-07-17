@@ -38,7 +38,10 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _api = ApiService();
+  // Instanța PARTAJATĂ (main.dart), nu una proprie — altfel un 401 aici n-ar
+  // declanșa `onUnauthorized`/`forceLogout` (acela e cablat doar pe instanța
+  // din Provider), vezi comentariul din `main.dart`.
+  late final ApiService _api;
 
   final _name = TextEditingController();
   final _phone = TextEditingController();
@@ -64,6 +67,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _api = context.read<ApiService>();
     _shippingMethodsFuture = _api.shippingMethods();
     // Preselectăm prima metodă de livrare de îndată ce sosește lista, fără să
     // mutăm starea în timpul `build()`-ului (FutureBuilder ar re-rula asta la

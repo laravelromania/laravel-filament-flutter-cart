@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../api_service.dart';
 import '../models/order.dart';
@@ -15,12 +16,15 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  final _api = ApiService();
+  // Instanța PARTAJATĂ (main.dart), nu una proprie — ca un 401 aici să
+  // declanșeze `onUnauthorized`/`forceLogout` la fel ca peste tot altundeva.
+  late final ApiService _api;
   late Future<List<OrderSummary>> _future;
 
   @override
   void initState() {
     super.initState();
+    _api = context.read<ApiService>();
     _future = _api.orders();
   }
 

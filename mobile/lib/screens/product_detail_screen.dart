@@ -12,8 +12,9 @@ import 'login_screen.dart';
 ///
 /// Butonul „Adaugă în coș" era inert în Partea 13 — acum e cablat la
 /// `CartProvider.add()` (`POST /api/v1/cart`, endpoint autentificat). Dacă
-/// utilizatorul nu e logat, apăsarea deschide `LoginScreen`; la un login
-/// reușit, adaugă automat produsul care a declanșat fluxul.
+/// utilizatorul nu e logat, apăsarea deschide `LoginScreen` (care oferă și
+/// creare de cont); la o autentificare reușită — login SAU register — adaugă
+/// automat produsul care a declanșat fluxul.
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.slug});
 
@@ -35,9 +36,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   /// Adaugă `variantId` în coș prin `CartProvider`. Cere autentificare: dacă
-  /// tokenul lipsește, deschide `LoginScreen` și, la un login reușit,
-  /// continuă automat cu adăugarea — utilizatorul nu trebuie să apese
-  /// „Adaugă în coș" a doua oară.
+  /// tokenul lipsește, deschide `LoginScreen` și, la o autentificare reușită
+  /// (login sau cont nou), continuă automat cu adăugarea — utilizatorul nu
+  /// trebuie să apese „Adaugă în coș" a doua oară.
   Future<void> _addToCart(BuildContext context, int variantId) async {
     if (!context.read<AuthProvider>().isAuthed) {
       final loggedIn = await Navigator.of(context).push<bool>(
