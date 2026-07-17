@@ -26,11 +26,11 @@ Cerințe: PHP 8.3+ (testat pe 8.4), Composer, Node 20+ / npm.
 
 ```bash
 cd backend
-composer install
+COMPOSER_ALLOW_SUPERUSER=1 composer install   # flag-ul e necesar doar dacă rulezi ca root
 cp .env.example .env
 php artisan key:generate
-touch database/database.sqlite
-php artisan migrate
+touch database/database.sqlite   # DB_CONNECTION=sqlite e deja setat în .env.example
+php artisan migrate --seed       # rulează și seederele: brands/categorii/produse demo + admin
 npm install
 npm run build          # compilează Tailwind 4 + assets storefront
 php artisan serve
@@ -39,14 +39,12 @@ php artisan serve
 - Storefront: `http://127.0.0.1:8000/`
 - Panou admin (Filament): `http://127.0.0.1:8000/admin`
 
-Creează un utilizator de admin pentru panou:
-
-```bash
-php artisan make:filament-user
-```
-
-(La bootstrap există deja un cont dev: `admin@shop.test` / `password` — vezi
-`backend/VERSIONS.md`. NU folosi aceste credențiale în producție.)
+`migrate --seed` creează automat contul de admin dev: `admin@shop.test` /
+`password` (vezi `Modules/Core/database/seeders/AdminUserSeeder.php`), plus un
+catalog demo (categorii, branduri, produse cu variante) și un client demo, ca
+storefront-ul și panoul să nu pornească goale. NU folosi aceste credențiale
+în producție — vezi și `backend/VERSIONS.md` pentru versiunile exacte ale
+tuturor dependențelor.
 
 Versiunile exacte ale tuturor dependențelor (Laravel, Filament, Livewire,
 nwidart, Sanctum, spatie, Tailwind, Vite) sunt în [`backend/VERSIONS.md`](backend/VERSIONS.md).
@@ -98,3 +96,15 @@ completează pe măsură ce apar părțile:
   **mod sandbox/mock** — codul e complet, dar are nevoie de conturi reale și de
   chei în `.env` pentru a funcționa cu serviciile live.
 - Baza de date implicită e **SQLite** (zero config), potrivită pentru rulat local.
+- Suita de teste (Pest) e verde end-to-end: `php artisan test` din `backend/`.
+
+## Licență & credite
+
+Cod companion educațional pentru seria de articole de pe
+[laravel.ro](https://laravel.ro) — liber de folosit, adaptat sau extins pentru
+învățare, teste proprii sau prototipuri (fără nicio garanție; NU e pregătit
+"ca atare" pentru producție — vezi notele de sandbox de mai sus). Construit cu
+[Laravel](https://laravel.com), [Filament](https://filamentphp.com),
+[Livewire](https://livewire.laravel.com), [nwidart/laravel-modules](https://nwidart.com/laravel-modules/)
+și [Flutter](https://flutter.dev) — toate sub licențele lor originale (în
+majoritate MIT).
