@@ -7,6 +7,7 @@ namespace Modules\Checkout\Livewire;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -206,7 +207,13 @@ class Checkout extends Component
         $provider = app(ShippingManager::class)->get($this->shippingCode);
         $shippingCost = $provider->quote($this->buildShippingContext($cart, $address));
 
+        // The correlation id for the whole order: minted here, before the order
+        // exists, so we can both key the (idempotent) creation on it and redirect
+        // the shopper to the confirmation page by a stable, public URL token.
+        $reference = Str::uuid()->toString();
+
         $draft = new OrderDraft(
+            reference: $reference,
             userId: Auth::id() !== null ? (int) Auth::id() : null,
             email: $this->email,
             customerName: $this->customerName,
@@ -226,7 +233,10 @@ class Checkout extends Component
 
         $this->cart()->clear();
 
-        $this->redirect(route('storefront.checkout.confirmation'), navigate: true);
+        // Hand off to the Orders-owned confirmation page by reference (a string
+        // route name — Checkout never imports Order). From there the shopper can
+        // pay online if the order needs it.
+        $this->redirect(route('storefront.order.confirmation', $reference), navigate: true);
     }
 
     // --- View data ----------------------------------------------------------

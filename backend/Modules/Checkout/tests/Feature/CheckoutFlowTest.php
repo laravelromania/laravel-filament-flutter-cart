@@ -47,7 +47,7 @@ it('walks a guest through the steps and dispatches OrderPlaced with the right to
 
     seedCartVariant(2); // 2 x 75,00 = 150,00 lei
 
-    Livewire::test(Checkout::class)
+    $component = Livewire::test(Checkout::class)
         ->assertSet('step', 1)
         ->call('toAddress')
         ->assertSet('step', 2)
@@ -68,11 +68,13 @@ it('walks a guest through the steps and dispatches OrderPlaced with the right to
         ->set('paymentCode', 'mock')
         ->call('toSummary')
         ->assertSet('step', 5)
-        ->call('placeOrder')
-        ->assertRedirect(route('storefront.checkout.confirmation'));
+        ->call('placeOrder');
 
-    Event::assertDispatched(OrderPlaced::class, function (OrderPlaced $event) {
+    $reference = null;
+
+    Event::assertDispatched(OrderPlaced::class, function (OrderPlaced $event) use (&$reference) {
         $draft = $event->draft;
+        $reference = $draft->reference;
 
         return $draft->userId === null
             && $draft->email === 'ion@example.com'
@@ -86,6 +88,9 @@ it('walks a guest through the steps and dispatches OrderPlaced with the right to
             && $draft->shipping->city === 'Cluj-Napoca'
             && $draft->billing->city === 'Cluj-Napoca';
     });
+
+    expect($reference)->not->toBeNull();
+    $component->assertRedirect(route('storefront.order.confirmation', $reference));
 });
 
 it('clears the cart after the order is placed', function () {
@@ -139,7 +144,7 @@ it('lets an authenticated shopper pick an address from the book and place the or
 
     seedCartVariant(1); // 1 x 75,00 = 75,00
 
-    Livewire::test(Checkout::class)
+    $component = Livewire::test(Checkout::class)
         ->call('toAddress')
         ->set('shippingAddressId', $address->id)
         ->call('toShipping')
@@ -147,15 +152,19 @@ it('lets an authenticated shopper pick an address from the book and place the or
         ->call('toPayment')
         ->set('paymentCode', 'mock')
         ->call('toSummary')
-        ->call('placeOrder')
-        ->assertRedirect(route('storefront.checkout.confirmation'));
+        ->call('placeOrder');
 
-    Event::assertDispatched(OrderPlaced::class, function (OrderPlaced $event) use ($user, $address) {
+    $reference = null;
+
+    Event::assertDispatched(OrderPlaced::class, function (OrderPlaced $event) use ($user, $address, &$reference) {
         $draft = $event->draft;
+        $reference = $draft->reference;
 
         return $draft->userId === $user->id
             && $draft->shipping->city === $address->city
             && $draft->itemsSubtotal->getMinorAmount() === 7500
             && $draft->total->getMinorAmount() === 9499; // 7500 + 1999
     });
+
+    $component->assertRedirect(route('storefront.order.confirmation', $reference));
 });

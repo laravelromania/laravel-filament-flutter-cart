@@ -31,6 +31,7 @@ class Order extends Model implements Payable, Shippable
 
     protected $fillable = [
         'number',
+        'reference',
         'status',
         'user_id',
         'email',
@@ -83,6 +84,12 @@ class Order extends Model implements Payable, Shippable
     public function payableAmount(): Money
     {
         return $this->total;
+    }
+
+    /** The payment method chosen at checkout — used by Payments to pick the gateway. */
+    public function paymentMethodCode(): string
+    {
+        return (string) $this->payment_code;
     }
 
     // --- Core\Contracts\Shippable -----------------------------------------

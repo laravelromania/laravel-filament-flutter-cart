@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Orders\Http\Controllers\InvoiceController;
 use Modules\Orders\Livewire\Account\OrderDetail;
+use Modules\Orders\Livewire\Storefront\OrderConfirmation;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,13 @@ use Modules\Orders\Livewire\Account\OrderDetail;
 | Grupul `web` e aplicat de RouteServiceProvider::mapWebRoutes().
 |
 */
+
+// Confirmarea comenzii e publică (checkout de invitat): componenta se apără
+// singură — referința e un UUID neghicibil, iar comenzile unui client autentificat
+// sunt în plus verificate pe proprietar. Aici aterizează wizard-ul după plasare,
+// de aici pleacă butonul „Plătește" către modulul Payments (Partea 11).
+Route::get('/comanda/{reference}', OrderConfirmation::class)
+    ->name('storefront.order.confirmation');
 
 Route::middleware('auth')->group(function () {
     Route::get('/cont/comenzi/{number}', OrderDetail::class)

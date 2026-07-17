@@ -13,7 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Payment gateway callbacks (IPN) are server-to-server POSTs with no CSRF
+        // token — the signature check in the Payments controller is their guard.
+        $middleware->validateCsrfTokens(except: [
+            'plati/*/callback',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -4,8 +4,11 @@ namespace Modules\Orders\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Livewire\Livewire;
+use Modules\Core\Contracts\OrderLocator;
 use Modules\Orders\Livewire\Account\OrderDetail;
 use Modules\Orders\Livewire\Account\OrderHistory;
+use Modules\Orders\Livewire\Storefront\OrderConfirmation;
+use Modules\Orders\Services\EloquentOrderLocator;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class OrdersServiceProvider extends ModuleServiceProvider
@@ -20,6 +23,15 @@ class OrdersServiceProvider extends ModuleServiceProvider
      */
     protected string $nameLower = 'orders';
 
+    public function register(): void
+    {
+        parent::register();
+
+        // Core contract -> Orders implementation. Payments (Part 11) resolves the
+        // contract to load a Payable by its reference, never importing Order.
+        $this->app->bind(OrderLocator::class, EloquentOrderLocator::class);
+    }
+
     /**
      * Register the account order components by name so the Customers module can
      * embed the history with `@livewire('orders.account-orders')` — a string
@@ -31,6 +43,7 @@ class OrdersServiceProvider extends ModuleServiceProvider
 
         Livewire::component('orders.account-orders', OrderHistory::class);
         Livewire::component('orders.account-order', OrderDetail::class);
+        Livewire::component('orders.order-confirmation', OrderConfirmation::class);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Modules\Core\DataObjects\AddressData;
 use Modules\Core\DataObjects\CartLine;
 use Modules\Core\DataObjects\OrderDraft;
@@ -20,7 +21,7 @@ uses(Tests\TestCase::class, RefreshDatabase::class);
  * Build the same OrderDraft shape Checkout (Part 8) assembles: 2 x 75,00 lei
  * plus a 19,99 lei flat shipping = 169,99 lei total.
  */
-function makeDraft(?int $userId = null): OrderDraft
+function makeDraft(?int $userId = null, ?string $reference = null): OrderDraft
 {
     $address = new AddressData(
         name: 'Ion Popescu',
@@ -32,6 +33,7 @@ function makeDraft(?int $userId = null): OrderDraft
     );
 
     return new OrderDraft(
+        reference: $reference ?? (string) Str::uuid(),
         userId: $userId,
         email: 'ion@example.com',
         customerName: 'Ion Popescu',
@@ -83,6 +85,21 @@ it('turns an OrderPlaced event into a persisted order with items and totals', fu
     expect($order->items->first()->quantity)->toBe(2);
     expect($order->items->first()->unit_price->getMinorAmount())->toBe(7500);
     expect($order->items->first()->line_total->getMinorAmount())->toBe(15000);
+});
+
+it('is idempotent — a re-dispatched OrderPlaced with the same reference makes one order', function () {
+    Mail::fake();
+
+    $reference = (string) Str::uuid();
+
+    OrderPlaced::dispatch(makeDraft(reference: $reference));
+    OrderPlaced::dispatch(makeDraft(reference: $reference));
+
+    expect(Order::count())->toBe(1);
+    expect(Order::first()->items()->count())->toBe(1);
+
+    // The confirmation mail is queued only on the genuine first insert.
+    Mail::assertQueued(OrderConfirmed::class, 1);
 });
 
 it('links the order to a signed-in shopper via user_id', function () {

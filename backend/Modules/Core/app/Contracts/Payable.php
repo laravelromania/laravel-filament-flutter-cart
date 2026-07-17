@@ -16,4 +16,11 @@ interface Payable
     public function payableReference(): string;
 
     public function payableAmount(): Money;
+
+    /**
+     * The code of the payment method chosen for this order, e.g. 'netopia' | 'payu'.
+     * Lets Payments (Part 11) pick the right gateway from the order alone, resolved
+     * through the PaymentManager registry.
+     */
+    public function paymentMethodCode(): string;
 }

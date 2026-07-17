@@ -23,6 +23,12 @@ readonly class OrderDraft
      * @param  CartLine[]  $lines
      */
     public function __construct(
+        // A UUID minted by the wizard the instant the order is placed. It is the
+        // one stable identity the draft carries: Orders keys firstOrCreate() on it
+        // (so a re-dispatched event never doubles the order) and the storefront
+        // uses it as the order's public URL token — the human CMD-number does not
+        // exist yet at dispatch time (it is stamped from the auto-increment id).
+        public string $reference,
         public ?int $userId,
         public string $email,
         public string $customerName,

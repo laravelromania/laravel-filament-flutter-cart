@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Orders\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 use Modules\Orders\Enums\OrderStatus;
 use Modules\Orders\Models\Order;
 
@@ -34,6 +35,7 @@ class OrderFactory extends Factory
 
         return [
             // `number` is stamped by the model's created hook.
+            'reference' => (string) Str::uuid(),
             'status' => OrderStatus::Pending,
             'user_id' => null,
             'email' => fake()->safeEmail(),

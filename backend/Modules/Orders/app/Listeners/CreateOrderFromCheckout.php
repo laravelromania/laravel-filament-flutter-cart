@@ -18,11 +18,11 @@ use Modules\Orders\Models\Order;
  * OrderDraft and cleared the cart; here we materialise it. The order starts in
  * {@see OrderStatus::Pending} and the shopper gets a queued confirmation email.
  *
- * Idempotency: an OrderDraft carries no stable identity, so a re-dispatched
- * event would create a second order. In this series OrderPlaced is fired
- * exactly once per checkout submit (a synchronous, in-request event), so we do
- * not de-duplicate here; a real store would attach an idempotency key to the
- * draft and guard on it.
+ * Idempotency: the draft carries a stable `reference` (a UUID), so we key
+ * firstOrCreate() on it. A re-dispatched OrderPlaced for the same reference —
+ * a double-submit, a retried job, the async payment callback racing the initial
+ * request — resolves to the SAME order instead of a duplicate. Items and the
+ * confirmation mail are created only on the first, genuine insert.
  */
 class CreateOrderFromCheckout
 {
@@ -30,21 +30,28 @@ class CreateOrderFromCheckout
     {
         $draft = $event->draft;
 
-        $order = Order::create([
-            'status' => OrderStatus::Pending,
-            'user_id' => $draft->userId,
-            'email' => $draft->email,
-            'customer_name' => $draft->customerName,
-            'phone' => $draft->phone,
-            'billing' => $this->addressToArray($draft->billing),
-            'shipping' => $this->addressToArray($draft->shipping),
-            'items_subtotal' => $draft->itemsSubtotal,
-            'shipping_code' => $draft->shippingCode,
-            'shipping_label' => $draft->shippingLabel,
-            'shipping_total' => $draft->shippingCost,
-            'payment_code' => $draft->paymentCode,
-            'total' => $draft->total,
-        ]);
+        $order = Order::firstOrCreate(
+            ['reference' => $draft->reference],
+            [
+                'status' => OrderStatus::Pending,
+                'user_id' => $draft->userId,
+                'email' => $draft->email,
+                'customer_name' => $draft->customerName,
+                'phone' => $draft->phone,
+                'billing' => $this->addressToArray($draft->billing),
+                'shipping' => $this->addressToArray($draft->shipping),
+                'items_subtotal' => $draft->itemsSubtotal,
+                'shipping_code' => $draft->shippingCode,
+                'shipping_label' => $draft->shippingLabel,
+                'shipping_total' => $draft->shippingCost,
+                'payment_code' => $draft->paymentCode,
+                'total' => $draft->total,
+            ],
+        );
+
+        if (! $order->wasRecentlyCreated) {
+            return;
+        }
 
         foreach ($draft->lines as $line) {
             $order->items()->create([

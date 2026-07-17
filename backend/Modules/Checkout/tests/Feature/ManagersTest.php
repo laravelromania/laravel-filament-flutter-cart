@@ -27,8 +27,14 @@ it('exposes the drivers the Shipping module (Part 10) registers into the Shippin
 it('resolves the mock payment driver through the PaymentManager', function () {
     $manager = app(PaymentManager::class);
 
-    expect($manager->available())->toHaveCount(1);
+    // Part 8 pre-loads only the mock gateway. Part 11's Payments module resolves
+    // this same singleton in its boot() and registers Netopia + PayU into it, so
+    // three methods are now offered at checkout without Checkout depending on
+    // Payments. The mock stays as the offline test placeholder.
+    expect($manager->available())->toHaveCount(3);
     expect($manager->get('mock'))->toBeInstanceOf(MockPaymentGateway::class);
+    expect($manager->has('netopia'))->toBeTrue();
+    expect($manager->has('payu'))->toBeTrue();
 });
 
 it('throws when asked for an unknown shipping code', function () {
