@@ -70,11 +70,16 @@ class ApiService {
   }
 
   /// `GET /api/v1/products/{slug}` — detaliu complet, cu variante și atribute.
+  ///
+  /// Ca orice resursă unică Laravel, răspunsul e învelit implicit în
+  /// `{ "data": {...} }` (confirmat împotriva serverului real, nu doar din
+  /// citirea codului) — la fel ca listele paginate de mai sus, care poartă
+  /// același `data`.
   Future<ProductDetail> productBySlug(String slug) async {
     final response = await _client.get(_uri('products/$slug'), headers: _headers());
     final body = _decodeMap(response);
 
-    return ProductDetail.fromJson(body);
+    return ProductDetail.fromJson(body['data'] as Map<String, dynamic>);
   }
 
   /// `GET /api/v1/categories` — arborele complet de categorii active.
