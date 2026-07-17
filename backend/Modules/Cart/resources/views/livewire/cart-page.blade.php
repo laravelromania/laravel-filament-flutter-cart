@@ -57,11 +57,19 @@
                         <span class="font-semibold text-gray-900">{{ $this->data->subtotal->format() }}</span>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">Livrarea și taxele se calculează la finalizare.</p>
-                    <button
-                        type="button"
-                        class="mt-6 w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
-                    >Spre finalizare</button>
-                    {{-- Finalizarea comenzii (checkout) sosește în Partea 8. --}}
+                    @if (\Illuminate\Support\Facades\Route::has('storefront.checkout'))
+                        <a
+                            href="{{ route('storefront.checkout') }}"
+                            wire:navigate
+                            class="mt-6 block w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-center text-sm font-semibold text-white hover:bg-indigo-500"
+                        >Spre finalizare</a>
+                    @else
+                        <button
+                            type="button"
+                            class="mt-6 w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                        >Spre finalizare</button>
+                        {{-- Finalizarea comenzii (checkout) sosește în Partea 8. --}}
+                    @endif
                 </div>
             </aside>
         </div>

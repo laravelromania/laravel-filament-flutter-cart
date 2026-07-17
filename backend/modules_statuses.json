@@ -2,5 +2,6 @@
     "Core": true,
     "Catalog": true,
     "Cart": true,
-    "Customers": true
+    "Customers": true,
+    "Checkout": true
 }

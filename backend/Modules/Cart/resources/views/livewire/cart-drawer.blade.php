@@ -89,12 +89,25 @@
                     @click="open = false"
                     class="rounded-lg border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >Vezi coșul</a>
-                <button
-                    type="button"
-                    @disabled($this->data->isEmpty())
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >Spre finalizare</button>
-                {{-- Finalizarea comenzii (checkout) sosește în Partea 8. --}}
+                @if (\Illuminate\Support\Facades\Route::has('storefront.checkout'))
+                    <a
+                        href="{{ route('storefront.checkout') }}"
+                        wire:navigate
+                        @click="open = false"
+                        @class([
+                            'rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-500',
+                            'pointer-events-none opacity-50' => $this->data->isEmpty(),
+                        ])
+                        @if ($this->data->isEmpty()) aria-disabled="true" tabindex="-1" @endif
+                    >Spre finalizare</a>
+                @else
+                    <button
+                        type="button"
+                        @disabled($this->data->isEmpty())
+                        class="rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >Spre finalizare</button>
+                    {{-- Finalizarea comenzii (checkout) sosește în Partea 8. --}}
+                @endif
             </div>
         </footer>
     </aside>
