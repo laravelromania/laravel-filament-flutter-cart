@@ -32,14 +32,25 @@
                     <a href="{{ route('storefront.products') }}" wire:navigate class="text-gray-600 hover:text-indigo-600">Produse</a>
                 @endif
 
-                {{-- Placeholder pentru coș. Componenta Livewire reală apare în Partea 6. --}}
-                <a href="#" class="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600" aria-label="Coș de cumpărături">
-                    <span>Coș</span>
-                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">0</span>
-                </a>
+                {{-- Coșul e furnizat de modulul Cart (Partea 6). Îl afișăm doar
+                     dacă ruta lui e încărcată, ca layout-ul Core să rămână
+                     funcțional și fără Cart. --}}
+                @if (\Illuminate\Support\Facades\Route::has('storefront.cart'))
+                    @livewire('cart.mini-cart')
+                @else
+                    <a href="#" class="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600" aria-label="Coș de cumpărături">
+                        <span>Coș</span>
+                        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">0</span>
+                    </a>
+                @endif
             </nav>
         </div>
     </header>
+
+    {{-- Drawer-ul de coș: overlay fix, randat o singură dată, tot din Cart. --}}
+    @if (\Illuminate\Support\Facades\Route::has('storefront.cart'))
+        @livewire('cart.drawer')
+    @endif
 
     <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-10">
         {{-- Suportă atât layout clasic (@extends/@yield) cât și componente Livewire full-page ($slot). --}}
