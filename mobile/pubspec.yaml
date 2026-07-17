@@ -1,0 +1,24 @@
+name: magazin_mobile
+description: "Aplicație mobilă Flutter pentru magazinul online modular — catalog, coș și checkout, peste API-ul Laravel din backend/."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  http: ^1.2.0
+  provider: ^6.1.0
+  flutter_secure_storage: ^9.2.0
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
