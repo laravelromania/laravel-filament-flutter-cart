@@ -16,6 +16,7 @@ class EditOrder extends EditRecord
     {
         return [
             OrderResource::changeStatusAction(),
+            OrderResource::generateAwbAction(),
             OrderResource::invoiceAction(),
             ViewAction::make(),
         ];

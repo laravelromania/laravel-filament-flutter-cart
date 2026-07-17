@@ -97,6 +97,7 @@ class OrderResource extends Resource
                     ViewAction::make(),
                     EditAction::make(),
                     static::changeStatusAction(),
+                    static::generateAwbAction(),
                     static::invoiceAction(),
                 ]),
             ])
@@ -197,6 +198,42 @@ class OrderResource extends Resource
 
                 if ($target === OrderStatus::Paid && $record->paid_at === null) {
                     $attributes['paid_at'] = now();
+                }
+
+                $record->update($attributes);
+            });
+    }
+
+    /**
+     * The "Generează AWB" action — the Part-10 Shipping seam.
+     *
+     * It resolves the Core {@see \Modules\Core\Contracts\ShipmentService} contract
+     * (implemented by the Shipping module) to book a shipment and get an AWB, then
+     * stores it and moves the order to `shipped`. The whole action is hidden when
+     * Shipping is not installed (`app()->bound(...)` is false) — Orders never
+     * references a Shipping class, only this Core contract. Only offered while the
+     * order may legally transition to `shipped` (i.e. it is `fulfilled`) and has no
+     * AWB yet, so the status graph is respected. In production you would trigger
+     * this automatically when payment is confirmed.
+     */
+    public static function generateAwbAction(): Action
+    {
+        return Action::make('generateAwb')
+            ->label('Generează AWB')
+            ->icon('heroicon-o-truck')
+            ->requiresConfirmation()
+            ->modalHeading('Generează AWB și marchează comanda expediată')
+            ->modalDescription('Se creează expedierea la curier (mod sandbox implicit) și comanda trece în „Expediată".')
+            ->visible(fn (Order $record): bool => app()->bound(\Modules\Core\Contracts\ShipmentService::class)
+                && $record->awb === null
+                && $record->status->canTransitionTo(OrderStatus::Shipped))
+            ->action(function (Order $record): void {
+                $awb = app(\Modules\Core\Contracts\ShipmentService::class)->createFor($record);
+
+                $attributes = ['awb' => $awb];
+
+                if ($record->status->canTransitionTo(OrderStatus::Shipped)) {
+                    $attributes['status'] = OrderStatus::Shipped;
                 }
 
                 $record->update($attributes);

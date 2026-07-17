@@ -106,6 +106,12 @@ class Order extends Model implements Payable, Shippable
         );
     }
 
+    /** The shipping method chosen at checkout — used by the Shipping module to pick the driver. */
+    public function shippingMethodCode(): string
+    {
+        return (string) $this->shipping_code;
+    }
+
     /**
      * @return array<string, string>
      */

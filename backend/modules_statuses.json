@@ -4,5 +4,6 @@
     "Cart": true,
     "Customers": true,
     "Checkout": true,
-    "Orders": true
+    "Orders": true,
+    "Shipping": true
 }

@@ -15,4 +15,11 @@ interface Shippable
     public function shippableReference(): string;
 
     public function shippingContext(): ShippingContext;
+
+    /**
+     * The machine code of the shipping method chosen for this order, e.g. 'flat'
+     * | 'sameday' | 'cargus'. Lets a {@see ShipmentService} pick the matching
+     * {@see ShippingProvider} without Shipping ever importing the Order model.
+     */
+    public function shippingMethodCode(): string;
 }
