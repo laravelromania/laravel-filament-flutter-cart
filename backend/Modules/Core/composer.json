@@ -20,7 +20,10 @@
             "Modules\\Core\\": "app/",
             "Modules\\Core\\Database\\Factories\\": "database/factories/",
             "Modules\\Core\\Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
