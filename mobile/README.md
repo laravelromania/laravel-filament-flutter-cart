@@ -59,16 +59,50 @@ Schimbă manual constanta din `lib/config.dart` pentru ținta pe care testezi.
 - `lib/screens/product_list_screen.dart` — catalogul, sub formă de grid, cu
   `FutureBuilder` + `RefreshIndicator`.
 - `lib/screens/product_detail_screen.dart` — detaliul unui produs: galerie,
-  selector de variantă, preț (`Money.formatted`) și un buton „Adaugă în coș"
-  încă inert (se cablează în Partea 14).
+  selector de variantă, preț (`Money.formatted`).
 - `lib/main.dart` — `MaterialApp` cu `ProductListScreen` ca ecran de start.
 
-Partea 14 adaugă autentificarea (`flutter_secure_storage` + `provider`), coșul
-și checkout-ul, peste exact aceleași fișiere.
+## Ce adaugă Partea 14
+
+- `lib/state/token_storage.dart` — wrapper static peste `flutter_secure_storage`
+  pentru tokenul Sanctum (Keystore/Keychain criptat, nu `shared_preferences`).
+- `lib/state/auth_provider.dart` — `ChangeNotifier` cu `register`/`login`/
+  `logout`/`forceLogout`, `isAuthed`, încarcă tokenul salvat la pornire
+  (`bootstrap()`).
+- `lib/state/cart_provider.dart` — `ChangeNotifier` peste coșul din
+  `Modules/Cart` (persistat per utilizator): `refresh`/`add`/`updateQty`/
+  `remove`, plus `itemCount`/`subtotal` pentru afișare rapidă (badge, sumar).
+- `lib/api_service.dart` — `_headers(auth: true)` atașează acum
+  `Authorization: Bearer <token>`; metode noi: `register`/`login`/`logout`/
+  `me`, `cartGet`/`cartAdd`/`cartUpdate`/`cartRemove`, `shippingMethods`,
+  `checkout`, `orders`/`orderByNumber`. Un 401 pe orice cerere autentificată
+  declanșează `onUnauthorized` (cablat spre `AuthProvider.forceLogout` în
+  `main.dart`).
+- `lib/models/` — `CartData`/`CartLine`, `ShippingMethod`, `OrderStatus`/
+  `OrderAddress`/`OrderItemLine`/`OrderSummary`/`OrderDetail`, `AppUser`/
+  `AuthResult`, `PaymentRedirect`/`CheckoutResult` — toate confirmate prin
+  curl live împotriva serverului, nu doar din citirea codului (inclusiv un
+  gotcha real: `variant_id` vine ca `String` în coș, dar ca `int` pe liniile
+  unei comenzi — vezi comentariile din `models/cart.dart`/`models/order.dart`).
+- `lib/screens/login_screen.dart` / `register_screen.dart` — formulare simple
+  peste `AuthProvider`.
+- `lib/screens/cart_screen.dart` — liniile coșului, cantitate +/-, ștergere,
+  subtotal (`Money.formatted`) și buton „Spre checkout".
+- `lib/screens/checkout_screen.dart` — adresă de facturare (+ opțional de
+  livrare), metodă de livrare (radio, cost live din
+  `GET /checkout/shipping-methods`) și metodă de plată, apoi `POST /checkout`.
+- `lib/screens/order_confirmation_screen.dart`, `orders_screen.dart`,
+  `order_detail_screen.dart` — confirmare, istoric și detaliu comandă.
+- `lib/screens/home_shell.dart` — navigare cu trei file (Catalog/Coș/Cont);
+  catalogul rămâne accesibil fără autentificare, coșul și contul cer login.
+- `lib/main.dart` — `MultiProvider` (`AuthProvider` + `CartProvider`) deasupra
+  întregii aplicații; butonul „Adaugă în coș" din Partea 13 e acum cablat la
+  `CartProvider.add()` (cere autentificare — deschide `LoginScreen` dacă
+  tokenul lipsește).
 
 ## Articole
 
 - [Partea 12 — Modulul Api](https://laravel.ro/articole/magazin-modular-laravel-12-api-mobil) (backend-ul consumat aici)
-- [Partea 13 — Aplicația Flutter: setup și catalog](https://laravel.ro/articole/magazin-modular-laravel-13-flutter-catalog) (acest folder)
-- [Partea 14 — Coșul și checkout-ul din Flutter](https://laravel.ro/articole/magazin-modular-laravel-14-flutter-cos-checkout)
+- [Partea 13 — Aplicația Flutter: setup și catalog](https://laravel.ro/articole/magazin-modular-laravel-13-flutter-catalog)
+- [Partea 14 — Coșul și checkout-ul din Flutter](https://laravel.ro/articole/magazin-modular-laravel-14-flutter-cos-checkout) (acest folder, complet)
 - Vezi și seria dedicată [Flutter + Laravel](https://laravel.ro/articole/flutter-laravel-app-login) pentru autentificare Sanctum de la zero.

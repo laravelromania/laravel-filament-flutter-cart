@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../api_service.dart';
 import '../models/product_detail.dart';
+import '../state/auth_provider.dart';
+import '../state/cart_provider.dart';
+import 'login_screen.dart';
 
 /// Ecranul de detaliu produs: galerie de imagini, selector de variantă și
 /// prețul curent (via `Money.formatted`, fără calcule pe client).
 ///
-/// Butonul „Adaugă în coș" e inert în Partea 13 — cablarea reală la
-/// `POST /api/v1/cart` (care e un endpoint autentificat) vine în Partea 14,
-/// odată cu `CartProvider` și `flutter_secure_storage`.
+/// Butonul „Adaugă în coș" era inert în Partea 13 — acum e cablat la
+/// `CartProvider.add()` (`POST /api/v1/cart`, endpoint autentificat). Dacă
+/// utilizatorul nu e logat, apăsarea deschide `LoginScreen`; la un login
+/// reușit, adaugă automat produsul care a declanșat fluxul.
 class ProductDetailScreen extends StatefulWidget {
   const ProductDetailScreen({super.key, required this.slug});
 
@@ -29,9 +34,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _future = _api.productBySlug(widget.slug);
   }
 
-  void _addToCart(BuildContext context) {
+  /// Adaugă `variantId` în coș prin `CartProvider`. Cere autentificare: dacă
+  /// tokenul lipsește, deschide `LoginScreen` și, la un login reușit,
+  /// continuă automat cu adăugarea — utilizatorul nu trebuie să apese
+  /// „Adaugă în coș" a doua oară.
+  Future<void> _addToCart(BuildContext context, int variantId) async {
+    if (!context.read<AuthProvider>().isAuthed) {
+      final loggedIn = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      if (loggedIn != true || !context.mounted) return;
+    }
+
+    final cart = context.read<CartProvider>();
+    await cart.add(variantId: variantId, qty: 1);
+    if (!context.mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coșul se leagă în Partea 14 a seriei.')),
+      SnackBar(content: Text(cart.error ?? 'Adăugat în coș.')),
     );
   }
 
@@ -63,6 +83,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           final variant = hasVariants ? product.variants[selectedIndex] : null;
           final price = variant?.price ?? product.price;
           final inStock = variant?.inStock ?? product.inStock;
+          // Coșul lucrează strict la nivel de variantă (`POST /cart` cere
+          // `variantId`) — dacă produsul n-are nicio variantă (caz limită,
+          // teoretic posibil per modelul de date din Partea 4), nu avem ce
+          // trimite, deci butonul rămâne dezactivat.
+          final variantId = variant?.id;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -119,7 +144,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ),
               FilledButton.icon(
-                onPressed: inStock ? () => _addToCart(context) : null,
+                onPressed: (inStock && variantId != null)
+                    ? () => _addToCart(context, variantId)
+                    : null,
                 icon: const Icon(Icons.add_shopping_cart),
                 label: const Text('Adaugă în coș'),
               ),
