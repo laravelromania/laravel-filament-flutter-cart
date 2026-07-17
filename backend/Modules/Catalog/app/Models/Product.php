@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Catalog\Database\Factories\ProductFactory;
 use Modules\Core\Casts\MoneyCast;
 use Spatie\MediaLibrary\HasMedia;
@@ -47,6 +48,38 @@ class Product extends Model implements HasMedia
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class);
+    }
+
+    /**
+     * @return HasMany<ProductVariant, $this>
+     */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
+     * The variant shown/added-to-cart by default: the first one created
+     * (or null when the product has no variants at all).
+     */
+    public function defaultVariant(): ?ProductVariant
+    {
+        return $this->variants()->orderBy('id')->first();
+    }
+
+    /**
+     * Whether the product can currently be sold. Products without variants
+     * carry no inventory count, so they're always considered in stock;
+     * products with variants are in stock when at least one variant has
+     * stock left.
+     */
+    public function inStock(): bool
+    {
+        if (! $this->variants()->exists()) {
+            return true;
+        }
+
+        return $this->variants()->where('stock', '>', 0)->exists();
     }
 
     public function registerMediaCollections(): void

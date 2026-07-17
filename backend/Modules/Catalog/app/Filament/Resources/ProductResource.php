@@ -25,6 +25,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 use Modules\Catalog\Filament\Resources\ProductResource\Pages;
+use Modules\Catalog\Filament\Resources\ProductResource\RelationManagers\VariantsRelationManager;
 use Modules\Catalog\Models\Product;
 use Modules\Core\ValueObjects\Money;
 use UnitEnum;
@@ -81,7 +82,16 @@ class ProductResource extends Resource
             TextInput::make('price')
                 ->label('Preț (lei)')
                 ->required()
-                ->numeric()
+                // NU ->numeric(): asta ar înregistra automat un NumberStateCast
+                // (Filament v4) care face floatval() pe starea brută LA HIDRATARE,
+                // înainte ca formatStateUsing de mai jos să apuce să transforme
+                // Money-ul în șir — la editare (preț existent) asta crapă cu
+                // "Object of class Money could not be converted to float".
+                // ->type()/->inputMode()/->rule() dau aceeași experiență (tastatură
+                // numerică, validare) fără cast-ul automat.
+                ->type('number')
+                ->inputMode('decimal')
+                ->rule('numeric')
                 ->minValue(0)
                 ->step('0.01')
                 ->prefix('RON')
@@ -148,6 +158,16 @@ class ProductResource extends Resource
                 ]),
             ])
             ->defaultSort('name');
+    }
+
+    /**
+     * @return array<class-string>
+     */
+    public static function getRelations(): array
+    {
+        return [
+            VariantsRelationManager::class,
+        ];
     }
 
     /**
