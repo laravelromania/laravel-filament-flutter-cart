@@ -18,12 +18,13 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Nwidart\Modules\Facades\Module;
 
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $panel = $panel
             ->default()
             ->id('admin')
             ->path('admin')
@@ -55,5 +56,30 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+
+        // Descoperă componentele Filament din fiecare modul activ. Convenția:
+        //   cod în  Modules/<N>/app/Filament/{Resources,Pages,Widgets}
+        //   namespace  Modules\<N>\Filament\{Resources,Pages,Widgets}
+        // Filament sare peste directoarele inexistente, deci un modul fără
+        // panou (ex. Catalog în această parte) nu strică boot-ul.
+        foreach (Module::allEnabled() as $module) {
+            $name = $module->getName();
+
+            $panel
+                ->discoverResources(
+                    in: base_path("Modules/{$name}/app/Filament/Resources"),
+                    for: "Modules\\{$name}\\Filament\\Resources",
+                )
+                ->discoverPages(
+                    in: base_path("Modules/{$name}/app/Filament/Pages"),
+                    for: "Modules\\{$name}\\Filament\\Pages",
+                )
+                ->discoverWidgets(
+                    in: base_path("Modules/{$name}/app/Filament/Widgets"),
+                    for: "Modules\\{$name}\\Filament\\Widgets",
+                );
+        }
+
+        return $panel;
     }
 }
