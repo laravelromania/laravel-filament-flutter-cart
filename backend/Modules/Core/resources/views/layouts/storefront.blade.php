@@ -43,6 +43,23 @@
                         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">0</span>
                     </a>
                 @endif
+
+                {{-- Autentificarea storefront e furnizată de modulul Customers
+                     (Partea 7). O afișăm doar dacă rutele lui sunt încărcate —
+                     Route::has('login'), același tipar ca la SearchBox/MiniCart —
+                     ca layout-ul Core să rămână funcțional și fără Customers. --}}
+                @if (\Illuminate\Support\Facades\Route::has('login'))
+                    @auth
+                        <a href="{{ route('storefront.account.dashboard') }}" wire:navigate class="text-gray-600 hover:text-indigo-600">Contul meu</a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="text-gray-600 hover:text-indigo-600">Ieși din cont</button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}" wire:navigate class="text-gray-600 hover:text-indigo-600">Autentificare</a>
+                        <a href="{{ route('register') }}" wire:navigate class="text-gray-600 hover:text-indigo-600">Creează cont</a>
+                    @endauth
+                @endif
             </nav>
         </div>
     </header>
