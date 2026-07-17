@@ -7,20 +7,18 @@ namespace Modules\Checkout\Livewire;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Checkout\Services\PaymentManager;
+use Modules\Checkout\Services\PlaceOrder;
 use Modules\Checkout\Services\ShippingManager;
 use Modules\Core\Contracts\CartRepository;
 use Modules\Core\DataObjects\AddressData;
 use Modules\Core\DataObjects\CartData;
-use Modules\Core\DataObjects\OrderDraft;
 use Modules\Core\DataObjects\ShippingContext;
-use Modules\Core\Events\OrderPlaced;
 use Modules\Customers\Models\Address;
 use Modules\Customers\Models\Customer;
 
@@ -204,39 +202,28 @@ class Checkout extends Component
         }
 
         $address = $this->resolveShippingAddress();
-        $provider = app(ShippingManager::class)->get($this->shippingCode);
-        $shippingCost = $provider->quote($this->buildShippingContext($cart, $address));
 
-        // The correlation id for the whole order: minted here, before the order
-        // exists, so we can both key the (idempotent) creation on it and redirect
-        // the shopper to the confirmation page by a stable, public URL token.
-        $reference = Str::uuid()->toString();
-
-        $draft = new OrderDraft(
-            reference: $reference,
-            userId: Auth::id() !== null ? (int) Auth::id() : null,
+        // Since Part 12 the "cart -> order" step lives in a single invokable
+        // service, shared with the JSON API so both front-ends place orders the
+        // exact same way. It mints the reference, quotes shipping, dispatches
+        // OrderPlaced and clears the cart; the wizard only gathers the input and
+        // redirects. (Billing equals shipping in this series — see resolveShippingAddress.)
+        $draft = app(PlaceOrder::class)(
+            cart: $cart,
+            billing: $address,
+            shipping: $address,
             email: $this->email,
             customerName: $this->customerName,
             phone: $this->phone,
-            billing: $address,
-            shipping: $address,
-            lines: $cart->lines,
-            itemsSubtotal: $cart->subtotal,
-            shippingCode: $provider->code(),
-            shippingLabel: $provider->label(),
-            shippingCost: $shippingCost,
-            paymentCode: app(PaymentManager::class)->get($this->paymentCode)->code(),
-            total: $cart->subtotal->plus($shippingCost),
+            shippingCode: (string) $this->shippingCode,
+            paymentCode: (string) $this->paymentCode,
+            userId: Auth::id() !== null ? (int) Auth::id() : null,
         );
-
-        OrderPlaced::dispatch($draft);
-
-        $this->cart()->clear();
 
         // Hand off to the Orders-owned confirmation page by reference (a string
         // route name — Checkout never imports Order). From there the shopper can
         // pay online if the order needs it.
-        $this->redirect(route('storefront.order.confirmation', $reference), navigate: true);
+        $this->redirect(route('storefront.order.confirmation', $draft->reference), navigate: true);
     }
 
     // --- View data ----------------------------------------------------------
