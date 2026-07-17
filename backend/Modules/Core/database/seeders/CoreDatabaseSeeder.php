@@ -12,6 +12,8 @@ class CoreDatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            // Must run first: RolesSeeder attaches the `admin` role to this user.
+            AdminUserSeeder::class,
             RolesSeeder::class,
             SettingsSeeder::class,
         ]);

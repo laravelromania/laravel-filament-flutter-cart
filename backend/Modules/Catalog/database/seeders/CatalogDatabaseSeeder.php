@@ -13,9 +13,11 @@ use Modules\Catalog\Models\Product;
 use Modules\Catalog\Models\ProductVariant;
 
 /**
- * Seeds a small, deterministic catalog so the storefront has something to
- * browse in dev: a few brands and categories, two attributes (Culoare,
- * Capacitate) and a handful of products with priced, stocked variants.
+ * Seeds a fuller, deterministic demo catalog so `migrate:fresh --seed` gives
+ * the storefront a real shop to browse: four brands, a two-level category
+ * tree (an "Electronice" root with Telefoane/Căști/Accesorii/Laptopuri as
+ * children), two attributes (Culoare, Capacitate) and around a dozen products
+ * with priced, stocked variants.
  *
  * Idempotent — keyed on slugs/SKUs, so re-running it won't duplicate rows.
  */
@@ -27,17 +29,32 @@ class CatalogDatabaseSeeder extends Seeder
             'TechNova' => 'technova',
             'AudioMax' => 'audiomax',
             'Voltra' => 'voltra',
+            'NovaBook' => 'novabook',
         ])->mapWithKeys(fn (string $slug, string $name) => [
             $slug => Brand::firstOrCreate(['slug' => $slug], ['name' => $name, 'is_active' => true]),
         ]);
 
-        $categories = collect([
-            'Telefoane' => 'telefoane',
-            'Căști' => 'casti',
-            'Accesorii' => 'accesorii',
-        ])->mapWithKeys(fn (string $slug, string $name) => [
-            $slug => Category::firstOrCreate(['slug' => $slug], ['name' => $name, 'is_active' => true]),
-        ]);
+        $root = Category::firstOrCreate(
+            ['slug' => 'electronice'],
+            ['name' => 'Electronice', 'is_active' => true],
+        );
+
+        // Children of the "Electronice" root, in display order.
+        $childCategories = [
+            ['name' => 'Telefoane', 'slug' => 'telefoane'],
+            ['name' => 'Căști', 'slug' => 'casti'],
+            ['name' => 'Accesorii', 'slug' => 'accesorii'],
+            ['name' => 'Laptopuri', 'slug' => 'laptopuri'],
+        ];
+
+        $categories = collect();
+
+        foreach ($childCategories as $position => $data) {
+            $categories[$data['slug']] = Category::firstOrCreate(
+                ['slug' => $data['slug']],
+                ['name' => $data['name'], 'parent_id' => $root->id, 'position' => $position, 'is_active' => true],
+            );
+        }
 
         $culoare = Attribute::firstOrCreate(['slug' => 'culoare'], ['name' => 'Culoare']);
         $capacitate = Attribute::firstOrCreate(['slug' => 'capacitate'], ['name' => 'Capacitate']);
@@ -48,6 +65,7 @@ class CatalogDatabaseSeeder extends Seeder
             'rosu' => $this->value($culoare, 'Roșu', 'rosu'),
             '128gb' => $this->value($capacitate, '128 GB', '128gb'),
             '256gb' => $this->value($capacitate, '256 GB', '256gb'),
+            '512gb' => $this->value($capacitate, '512 GB', '512gb'),
         ];
 
         $products = [
@@ -88,6 +106,50 @@ class CatalogDatabaseSeeder extends Seeder
                 'category' => 'accesorii', 'price' => 14900, 'description' => 'Încărcare rapidă USB-C.',
                 'variants' => [
                     ['sku' => 'VLT-65W-ALB', 'price' => null, 'stock' => 50, 'values' => ['alb']],
+                ],
+            ],
+            [
+                'name' => 'Telefon Nova Max', 'slug' => 'telefon-nova-max', 'brand' => 'technova',
+                'category' => 'telefoane', 'price' => 349900, 'description' => 'Ecran mare, baterie 5000 mAh.',
+                'variants' => [
+                    ['sku' => 'NOVA-MAX-NEG-256', 'price' => 349900, 'stock' => 10, 'values' => ['negru', '256gb']],
+                    ['sku' => 'NOVA-MAX-ALB-256', 'price' => 349900, 'stock' => 4, 'values' => ['alb', '256gb']],
+                ],
+            ],
+            [
+                'name' => 'Căști AudioMax Sport', 'slug' => 'casti-audiomax-sport', 'brand' => 'audiomax',
+                'category' => 'casti', 'price' => 59900, 'description' => 'Rezistente la apă, pentru sport.',
+                'variants' => [
+                    ['sku' => 'AMX-SPORT-NEG', 'price' => null, 'stock' => 18, 'values' => ['negru']],
+                ],
+            ],
+            [
+                'name' => 'Laptop NovaBook Slim 14', 'slug' => 'laptop-novabook-slim-14', 'brand' => 'novabook',
+                'category' => 'laptopuri', 'price' => 349900, 'description' => 'Ultraportabil, 14", 1.2 kg.',
+                'variants' => [
+                    ['sku' => 'NBK-SLIM-256', 'price' => 349900, 'stock' => 7, 'values' => ['negru', '256gb']],
+                    ['sku' => 'NBK-SLIM-512', 'price' => 419900, 'stock' => 3, 'values' => ['negru', '512gb']],
+                ],
+            ],
+            [
+                'name' => 'Laptop NovaBook Pro 16', 'slug' => 'laptop-novabook-pro-16', 'brand' => 'novabook',
+                'category' => 'laptopuri', 'price' => 599900, 'description' => 'Pentru muncă grea: 16", GPU dedicat.',
+                'variants' => [
+                    ['sku' => 'NBK-PRO-512', 'price' => 599900, 'stock' => 5, 'values' => ['negru', '512gb']],
+                ],
+            ],
+            [
+                'name' => 'Mouse wireless Voltra', 'slug' => 'mouse-wireless-voltra', 'brand' => 'voltra',
+                'category' => 'accesorii', 'price' => 8900, 'description' => 'Silențios, autonomie 12 luni.',
+                'variants' => [
+                    ['sku' => 'VLT-MOUSE-NEG', 'price' => null, 'stock' => 40, 'values' => ['negru']],
+                ],
+            ],
+            [
+                'name' => 'Cablu Voltra USB-C 2m', 'slug' => 'cablu-voltra-usb-c-2m', 'brand' => 'voltra',
+                'category' => 'accesorii', 'price' => 4900, 'description' => 'Împletitură textilă, încărcare rapidă.',
+                'variants' => [
+                    ['sku' => 'VLT-CABLU-ALB', 'price' => null, 'stock' => 60, 'values' => ['alb']],
                 ],
             ],
         ];

@@ -37,6 +37,10 @@ it('knows when it is zero and compares by value', function () {
         ->and(Money::of(100)->equals(Money::of(200)))->toBeFalse();
 });
 
+it('is not equal to the same minor amount in a different currency', function () {
+    expect(Money::of(100, 'RON')->equals(Money::of(100, 'EUR')))->toBeFalse();
+});
+
 it('formats amounts the Romanian way', function () {
     expect(Money::of(12990)->format())->toBe('129,90 lei')
         ->and(Money::of(5)->format())->toBe('0,05 lei')

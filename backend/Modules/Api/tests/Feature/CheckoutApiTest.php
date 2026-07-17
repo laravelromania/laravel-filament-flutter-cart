@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\Catalog\Models\Product;
 use Modules\Catalog\Models\ProductVariant;
+use Modules\Checkout\Services\PaymentManager;
 use Modules\Core\Contracts\CartRepository;
 
 uses(Tests\TestCase::class, RefreshDatabase::class);
@@ -117,4 +118,47 @@ it('rejects checkout with an unknown shipping code as 422', function () {
     ])
         ->assertStatus(422)
         ->assertJsonStructure(['message', 'errors' => ['shippingCode']]);
+});
+
+/**
+ * The full API checkout loop with a REAL online gateway, not the 'mock'
+ * placeholder every other test in this file uses: checkout hands back a
+ * `payment` redirect (the sandbox simulator URL, since no merchant
+ * credentials are configured), and only the signed Netopia sandbox callback —
+ * the same one a real IPN would send — actually moves the order to paid. This
+ * is the one place the whole mobile-app payment chain (checkout -> redirect ->
+ * gateway callback -> paid, then visible again through GET /api/v1/orders) is
+ * exercised together.
+ */
+it('places an order with a real gateway, returns a payment redirect, and pays it via the sandbox callback', function () {
+    Sanctum::actingAs(User::factory()->create(['email' => 'buyer@example.com']));
+    seedApiCart(2); // 2 x 75,00 = 150,00 lei
+
+    $response = $this->postJson('/api/v1/checkout', [
+        'billing' => apiAddress(),
+        'shipping' => apiAddress(),
+        'shippingCode' => 'flat',
+        'paymentCode' => 'netopia',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.status.value', 'pending')
+        ->assertJsonStructure(['payment' => ['url', 'method', 'fields']]);
+
+    expect($response->json('payment.url'))->not->toBeNull();
+
+    $orderNumber = $response->json('data.number');
+
+    $driver = app(PaymentManager::class)->get('netopia');
+    $signature = $driver->sandboxSignature($orderNumber, 'confirmed');
+
+    $this->post(route('payments.callback', ['gateway' => 'netopia']), [
+        'reference' => $orderNumber,
+        'status' => 'confirmed',
+        'signature' => $signature,
+    ])->assertOk();
+
+    $this->getJson("/api/v1/orders/{$orderNumber}")
+        ->assertOk()
+        ->assertJsonPath('data.status.value', 'paid');
 });
