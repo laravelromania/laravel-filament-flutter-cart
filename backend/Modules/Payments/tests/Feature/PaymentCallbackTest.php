@@ -3,72 +3,134 @@
 declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Modules\Checkout\Services\PaymentManager;
+use Modules\Core\Contracts\OrderLocator;
+use Modules\Core\DataObjects\AddressData;
+use Modules\Core\DataObjects\CartLine;
+use Modules\Core\DataObjects\OrderDraft;
+use Modules\Core\Events\OrderPlaced;
 use Modules\Core\Events\PaymentCompleted;
-use Modules\Orders\Enums\OrderStatus;
-use Modules\Orders\Models\Order;
+use Modules\Core\ValueObjects\Money;
 
 uses(Tests\TestCase::class, RefreshDatabase::class);
 
-/** A pending Netopia order + the correctly-signed sandbox callback payload for it. */
-function netopiaCallback(Order $order, string $status = 'confirmed'): array
+/**
+ * Places a real order by dispatching the same Core OrderPlaced event Checkout
+ * fires at "Plasează comanda" — the Orders module's own CreateOrderFromCheckout
+ * listener persists it. Payments must never import the Orders module, not even
+ * in tests (that is the whole point of the Core OrderLocator contract), so this
+ * — not an Order factory — is how this module builds an order to exercise.
+ * Mirrors how Orders' own checkout-listener test builds its draft.
+ *
+ * Returns the order's UUID `reference` — the token Payments' own routes use.
+ */
+function placeOrder(string $paymentCode = 'netopia'): string
+{
+    Mail::fake();
+
+    $reference = (string) Str::uuid();
+
+    $address = new AddressData(
+        name: 'Ion Popescu',
+        phone: '0712345678',
+        county: 'Cluj',
+        city: 'Cluj-Napoca',
+        street: 'Str. Memorandumului 1',
+        postalCode: '400114',
+    );
+
+    OrderPlaced::dispatch(new OrderDraft(
+        reference: $reference,
+        userId: null,
+        email: 'ion@example.com',
+        customerName: 'Ion Popescu',
+        phone: '0712345678',
+        billing: $address,
+        shipping: $address,
+        lines: [
+            new CartLine(
+                variantId: '42',
+                name: 'Telefon Nova X1 — Negru',
+                unitPrice: Money::of(7500),
+                quantity: 2,
+                lineTotal: Money::of(15000),
+            ),
+        ],
+        itemsSubtotal: Money::of(15000),
+        shippingCode: 'flat',
+        shippingLabel: 'Livrare standard prin curier',
+        shippingCost: Money::of(1999),
+        paymentCode: $paymentCode,
+        total: Money::of(16999),
+    ));
+
+    return $reference;
+}
+
+/**
+ * The order NUMBER (e.g. "CMD-000001") behind a placed order's UUID reference —
+ * loaded through the Core OrderLocator/Payable contracts, never Order:: directly.
+ */
+function orderNumberFor(string $reference): string
+{
+    return app(OrderLocator::class)->byReference($reference)->payableReference();
+}
+
+/** The correctly-signed sandbox callback payload for a placed order. */
+function netopiaCallback(string $reference, string $status = 'confirmed'): array
 {
     $driver = app(PaymentManager::class)->get('netopia');
+    $orderNumber = orderNumberFor($reference);
 
     return [
-        'reference' => $order->number,
+        'reference' => $orderNumber,
         'status' => $status,
-        'signature' => $driver->sandboxSignature($order->number, $status),
+        'signature' => $driver->sandboxSignature($orderNumber, $status),
     ];
 }
 
 it('marks the order paid on a signature-verified successful callback', function () {
     Http::fake();
 
-    $order = Order::factory()->create([
-        'payment_code' => 'netopia',
-        'status' => OrderStatus::Pending,
-        'paid_at' => null,
-    ]);
+    $reference = placeOrder('netopia');
 
-    $this->post(route('payments.callback', ['gateway' => 'netopia']), netopiaCallback($order))
+    $this->post(route('payments.callback', ['gateway' => 'netopia']), netopiaCallback($reference))
         ->assertOk();
 
-    $order->refresh();
+    $this->assertDatabaseHas('orders', ['reference' => $reference, 'status' => 'paid']);
 
-    expect($order->status)->toBe(OrderStatus::Paid);
-    expect($order->paid_at)->not->toBeNull();
+    $row = DB::table('orders')->where('reference', $reference)->first();
+    expect($row->paid_at)->not->toBeNull();
 
     Http::assertNothingSent();
 });
 
 it('rejects a callback with an invalid signature and leaves the order pending', function () {
-    $order = Order::factory()->create([
-        'payment_code' => 'netopia',
-        'status' => OrderStatus::Pending,
-        'paid_at' => null,
-    ]);
+    $reference = placeOrder('netopia');
 
-    $forged = netopiaCallback($order);
+    $forged = netopiaCallback($reference);
     $forged['signature'] = 'forged-signature';
 
     $this->post(route('payments.callback', ['gateway' => 'netopia']), $forged)
         ->assertForbidden();
 
-    $order->refresh();
+    $this->assertDatabaseHas('orders', ['reference' => $reference, 'status' => 'pending']);
 
-    expect($order->status)->toBe(OrderStatus::Pending);
-    expect($order->paid_at)->toBeNull();
+    $row = DB::table('orders')->where('reference', $reference)->first();
+    expect($row->paid_at)->toBeNull();
 });
 
 it('does not dispatch PaymentCompleted for a forged callback', function () {
     Event::fake([PaymentCompleted::class]);
 
-    $order = Order::factory()->create(['payment_code' => 'netopia', 'status' => OrderStatus::Pending]);
+    $reference = placeOrder('netopia');
 
-    $forged = netopiaCallback($order);
+    $forged = netopiaCallback($reference);
     $forged['signature'] = 'forged-signature';
 
     $this->post(route('payments.callback', ['gateway' => 'netopia']), $forged)
@@ -78,40 +140,34 @@ it('does not dispatch PaymentCompleted for a forged callback', function () {
 });
 
 it('leaves the order pending on a verified but unsuccessful (canceled) callback', function () {
-    $order = Order::factory()->create([
-        'payment_code' => 'payu',
-        'status' => OrderStatus::Pending,
-        'paid_at' => null,
-    ]);
+    $reference = placeOrder('payu');
 
     $driver = app(PaymentManager::class)->get('payu');
+    $orderNumber = orderNumberFor($reference);
 
     $this->post(route('payments.callback', ['gateway' => 'payu']), [
-        'reference' => $order->number,
+        'reference' => $orderNumber,
         'status' => 'canceled',
-        'signature' => $driver->sandboxSignature($order->number, 'canceled'),
+        'signature' => $driver->sandboxSignature($orderNumber, 'canceled'),
     ])->assertOk();
 
-    $order->refresh();
+    $this->assertDatabaseHas('orders', ['reference' => $reference, 'status' => 'pending']);
 
-    expect($order->status)->toBe(OrderStatus::Pending);
-    expect($order->paid_at)->toBeNull();
+    $row = DB::table('orders')->where('reference', $reference)->first();
+    expect($row->paid_at)->toBeNull();
 });
 
 it('is idempotent — a replayed callback keeps a single paid_at', function () {
-    $order = Order::factory()->create([
-        'payment_code' => 'netopia',
-        'status' => OrderStatus::Pending,
-        'paid_at' => null,
-    ]);
+    $reference = placeOrder('netopia');
 
-    $payload = netopiaCallback($order);
+    $payload = netopiaCallback($reference);
 
     $this->post(route('payments.callback', ['gateway' => 'netopia']), $payload)->assertOk();
-    $firstPaidAt = $order->fresh()->paid_at;
+    $firstPaidAt = DB::table('orders')->where('reference', $reference)->value('paid_at');
 
     $this->post(route('payments.callback', ['gateway' => 'netopia']), $payload)->assertOk();
+    $secondPaidAt = DB::table('orders')->where('reference', $reference)->value('paid_at');
 
-    expect($order->fresh()->paid_at->equalTo($firstPaidAt))->toBeTrue();
-    expect($order->fresh()->status)->toBe(OrderStatus::Paid);
+    expect($secondPaidAt)->toBe($firstPaidAt);
+    $this->assertDatabaseHas('orders', ['reference' => $reference, 'status' => 'paid']);
 });

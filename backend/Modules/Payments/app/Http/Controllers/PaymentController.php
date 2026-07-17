@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Payments\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Modules\Checkout\Services\PaymentManager;
@@ -32,7 +33,7 @@ class PaymentController
 
         $redirect = app(PaymentManager::class)
             ->get($order->paymentMethodCode())
-            ->initiate($order);
+            ->initiate($order, $reference);
 
         // Remember where to bounce the browser once the payment settles — the
         // callback/return only carry the merchant reference, not this URL token.
@@ -93,6 +94,18 @@ class PaymentController
      * The sandbox-only "simulează plata" screen. Its Succes/Eșec buttons POST a
      * correctly-signed callback, so the whole verify → dispatch → mark-paid path
      * is demonstrable without a merchant account.
+     *
+     * $reference here is the unguessable checkout UUID — the same token used by
+     * `/plati/initiaza/{reference}` and `/comanda/{reference}` — NOT the
+     * sequential order number: this page renders a validly-signed callback
+     * payload, so it must not be walkable by guessing order ids. We resolve the
+     * real order through the Core OrderLocator and refuse to render anything for
+     * a reference that doesn't exist or whose order is already paid.
+     *
+     * In PRODUCTION the callback signature is minted and validated by the real
+     * gateway, bound to a nonce created during initiate() — this sandbox
+     * simulator only stands in for the gateway's hosted page; it is not itself
+     * a substitute for that per-transaction nonce.
      */
     public function simulate(string $gateway, string $reference)
     {
@@ -100,13 +113,28 @@ class PaymentController
 
         abort_unless($driver->isSandbox(), 404);
 
+        $order = app(OrderLocator::class)->byReference($reference);
+
+        abort_unless($order !== null, 404);
+
+        // Payable doesn't expose paid state, so gate directly on the column.
+        abort_unless(
+            DB::table('orders')->where('reference', $reference)->whereNull('paid_at')->exists(),
+            404,
+        );
+
+        // The merchant reference signed into the callback payload — echoed back
+        // by callback() and correlated by Orders' MarkOrderPaid — stays the
+        // order's public reference (its number), unrelated to the URL token above.
+        $orderReference = $order->payableReference();
+
         return view('payments::simulate', [
             'gateway' => $gateway,
-            'reference' => $reference,
+            'reference' => $orderReference,
             'label' => $driver->label(),
             'callbackUrl' => route('payments.callback', ['gateway' => $gateway]),
-            'successSignature' => $driver->sandboxSignature($reference, 'confirmed'),
-            'failSignature' => $driver->sandboxSignature($reference, 'canceled'),
+            'successSignature' => $driver->sandboxSignature($orderReference, 'confirmed'),
+            'failSignature' => $driver->sandboxSignature($orderReference, 'canceled'),
         ]);
     }
 

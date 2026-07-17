@@ -36,16 +36,28 @@ abstract class AbstractGateway implements PaymentGateway
     /** Sandbox unless it was explicitly disabled AND the real credentials exist. */
     abstract public function isSandbox(): bool;
 
-    public function initiate(Payable $order): PaymentRedirect
+    /**
+     * $reference is the checkout UUID — the same unguessable token used by
+     * `/plati/initiaza/{reference}` and `/comanda/{reference}` — passed through by
+     * {@see \Modules\Payments\Http\Controllers\PaymentController::initiate()}. It is
+     * an ADDITIONAL optional parameter on top of the Core {@see PaymentGateway}
+     * contract (so this stays a valid implementation of it — PHP allows an
+     * implementer to accept extra optional arguments); callers that only have a
+     * Payable (e.g. a direct driver call) fall back to payableReference().
+     */
+    public function initiate(Payable $order, ?string $reference = null): PaymentRedirect
     {
         if ($this->isSandbox()) {
             // No bank in reach: hand the shopper to the internal "simulează plata"
-            // screen. The merchant reference we would send a real gateway is the
-            // order's public reference; the callback echoes it straight back.
+            // screen. Its URL is reachable by the shopper's own browser, so it MUST
+            // be keyed on the unguessable UUID reference, never payableReference()
+            // (the sequential "CMD-000123" order number a bot could walk). The
+            // merchant reference echoed back by the callback (and used to sign it)
+            // is still the order's public reference — see simulate().
             return new PaymentRedirect(
                 url: route('payments.simulate', [
                     'gateway' => $this->code(),
-                    'reference' => $order->payableReference(),
+                    'reference' => $reference ?? $order->payableReference(),
                 ]),
             );
         }
