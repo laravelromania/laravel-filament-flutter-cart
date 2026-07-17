@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Catalog\Database\Factories\ProductFactory;
 use Modules\Core\Casts\MoneyCast;
+use Modules\Core\ValueObjects\Money;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -65,6 +66,23 @@ class Product extends Model implements HasMedia
     public function defaultVariant(): ?ProductVariant
     {
         return $this->variants()->orderBy('id')->first();
+    }
+
+    /**
+     * The price to show on listing cards: the default variant's effective price
+     * when the product has variants, otherwise the product's own price.
+     *
+     * Prefers the already eager-loaded `variants` collection so a grid of cards
+     * never triggers a query per product (the N+1 flagged in the Part 4 review);
+     * falls back to {@see self::defaultVariant()} when the relation isn't loaded.
+     */
+    public function displayPrice(): Money
+    {
+        $variant = $this->relationLoaded('variants')
+            ? $this->variants->sortBy('id')->first()
+            : $this->defaultVariant();
+
+        return $variant?->effectivePrice() ?? $this->price;
     }
 
     /**

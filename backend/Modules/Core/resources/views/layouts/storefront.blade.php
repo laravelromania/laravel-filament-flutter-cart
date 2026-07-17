@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', config('app.name', 'Magazin'))</title>
+    {{-- Title: componentele Livewire full-page trimit `$title`; paginile clasice
+         (@extends/@section) folosesc @yield('title'). Fallback: numele aplicației. --}}
+    <title>{{ ($title ?? null) ?: \Illuminate\Support\Facades\View::yieldContent('title', config('app.name', 'Magazin')) }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
@@ -15,8 +17,20 @@
                 {{ config('app.name', 'Magazin') }}
             </a>
 
+            {{-- Căsuța de căutare din antet e furnizată de modulul Catalog. O
+                 afișăm doar dacă rutele storefront sunt încărcate, ca layout-ul
+                 Core să rămână funcțional și fără Catalog. --}}
+            @if (\Illuminate\Support\Facades\Route::has('storefront.products'))
+                <div class="hidden flex-1 justify-center px-6 sm:flex">
+                    @livewire('catalog.search-box')
+                </div>
+            @endif
+
             <nav class="flex items-center gap-6 text-sm font-medium">
                 <a href="{{ url('/') }}" class="text-gray-600 hover:text-indigo-600">Acasă</a>
+                @if (\Illuminate\Support\Facades\Route::has('storefront.products'))
+                    <a href="{{ route('storefront.products') }}" wire:navigate class="text-gray-600 hover:text-indigo-600">Produse</a>
+                @endif
 
                 {{-- Placeholder pentru coș. Componenta Livewire reală apare în Partea 6. --}}
                 <a href="#" class="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600" aria-label="Coș de cumpărături">
