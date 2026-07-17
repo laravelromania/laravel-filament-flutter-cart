@@ -3,5 +3,6 @@
     "Catalog": true,
     "Cart": true,
     "Customers": true,
-    "Checkout": true
+    "Checkout": true,
+    "Orders": true
 }

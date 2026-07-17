@@ -26,6 +26,8 @@ Generat: 2026-07-17 · PHP 8.4.20 · Composer 2.9.2 · Node v22 · npm 10
 | `laravel/sanctum` | v4.3.2 | via `php artisan install:api` |
 | `spatie/laravel-permission` | v8.3.0 | `^8.3` |
 | `spatie/laravel-medialibrary` | v11.23.2 | `^11.23` |
+| `barryvdh/laravel-dompdf` | v3.1.2 | `^3.1` (Task 9 — factură PDF) |
+| `dompdf/dompdf` | v3.1.5 | (tras de barryvdh/laravel-dompdf) |
 
 ## Dependențe npm (storefront / Vite)
 
